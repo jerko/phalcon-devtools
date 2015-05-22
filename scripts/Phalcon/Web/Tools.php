@@ -99,6 +99,14 @@ class Tools
                 )
             )
         ),
+		'mbit' => array(
+            'caption' => 'Mbit',
+            'options' => array(
+                'index' => array(
+                    'caption' => 'Generate'
+                )
+            )
+        ),
         'migrations' => array(
             'caption' => 'Migrations',
             'options' => array(
