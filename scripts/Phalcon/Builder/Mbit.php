@@ -164,6 +164,16 @@ class Mbit extends Component
         }
         $options['controllersDir'] = $controllerPath;
 
+        if (!isset($config->application->transformersDir)) {
+            throw new BuilderException("The builder is unable to find the transformers directory");
+        }
+        if ($this->isAbsolutePath($config->application->modelsDir) == false) {
+            $transformerPath = $path . DIRECTORY_SEPARATOR . $config->application->transformersDir;
+        } else {
+            $transformerPath = $config->application->transformersDir;
+        }
+        $options['transformersDir'] = $transformerPath;
+
         if (!isset($config->application->viewsDir)) {
             throw new BuilderException("The builder is unable to find the views directory");
         }
@@ -236,6 +246,9 @@ class Mbit extends Component
 
         //Build Controller
         $this->_makeController($path, $options);
+
+		//Build Transformer
+        $this->_makeTransformer($path, $options);
 
         if (isset($options['templateEngine']) && $options['templateEngine'] == 'volt') {
             //View layouts
@@ -388,6 +401,32 @@ class Mbit extends Component
             }
 
             $code .= ';' . PHP_EOL . "\t\t";
+        }
+
+        return $code;
+    }
+
+
+	/**
+     * @param $var
+     * @param $fields
+     * @param $useGetSetters
+     * @param $identityField
+     *
+     * @return string
+     */
+    private function _captureMbitTransformInput($var, $fields, $useGetSetters, $identityField)
+    {
+        $code = '';
+        foreach ($fields as $field => $dataType) {
+            if ($field == $identityField) {
+                continue;
+            }
+
+			$fieldCode = '$'.$var.'->'.$field;
+            $code .= "'".$field."'=>".$fieldCode;
+            $code .= ',' . PHP_EOL . "\t\t";
+
         }
 
         return $code;
@@ -619,6 +658,61 @@ class Mbit extends Component
         $code = str_replace("\t", "    ", $code);
         file_put_contents($controllerPath, $code);
     }
+
+
+	/**
+     * Generate transformer using scaffold mbit
+     *
+     * @param string $path
+     * @param array  $options
+     */
+    private function _makeTransformer($path, $options)
+    {
+        $transformerPath = $options['transformersDir'] . $options['className'] . 'Transformer.php';
+
+        if (file_exists($transformerPath)) {
+            if (!$options['force']) {
+                return;
+            }
+        }
+
+        $path = $options['templatePath'] . '/mbit/no-forms/Transformer.php';
+
+        $code = file_get_contents($path);
+
+        if (isset($options['transformersNamespace']) === true) {
+            $code = str_replace('$namespace$', 'namespace '.$options['transformersNamespace'].';'.PHP_EOL, $code);
+        } else {
+            $code = str_replace('$namespace$', ' ', $code);
+        }
+
+        $code = str_replace('$singularVar$', '$' . $options['singular'], $code);
+        $code = str_replace('$singular$', $options['singular'], $code);
+
+        $code = str_replace('$pluralVar$', '$' . $options['plural'], $code);
+        $code = str_replace('$plural$', $options['plural'], $code);
+
+        $code = str_replace('$className$', $options['className'], $code);
+
+        $code = str_replace('$assignInputFromRequestTransform$', $this->_captureMbitTransformInput($options['singular'], $options['dataTypes'], $options['genSettersGetters'], $options['identityField']), $code);
+        //$code = str_replace('$assignInputFromRequestUpdate$', $this->_captureMbitInput($options['singular'], $options['dataTypes'], $options['genSettersGetters'], $options['identityField']), $code);
+
+        $code = str_replace('$assignTagDefaults$', $this->_assignTagDefaults($options['singular'], $options['dataTypes'], $options['genSettersGetters']), $code);
+
+        $code = str_replace('$pkVar$', '$' . $options['attributes'][0], $code);
+        $code = str_replace('$pk$', $options['attributes'][0], $code);
+
+        if ($this->isConsole()) {
+            echo $transformerPath, PHP_EOL;
+        }
+
+        $code = str_replace("\t", "    ", $code);
+        file_put_contents($transformerPath, $code);
+    }
+
+
+
+
 
     /**
      * Make layouts of model using scaffold mbit
